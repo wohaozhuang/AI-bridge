@@ -132,6 +132,12 @@ model = st.selectbox(
     ["可灵", "拍我AI", "Seedance"]
 )
 
+resolution = st.selectbox(
+    "选择分辨率",
+    ["480P", "720P"],
+    index=1
+)
+
 prompt = st.text_area(
     "请输入视频描述",
     height=300
