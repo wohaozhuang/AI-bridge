@@ -5,7 +5,13 @@ API_KEY = "b19eb56dc466df154096a3fb43bcdb8e6837a2a552b4a87b6ace72af0ccae969"
 BASE_URL = "https://api-auroraai.visionular.cn"
 
 
-def create_video(prompt, duration=15, resolution="720P", size="16x9", model="seedance-2-0"):
+def create_video(
+    prompt,
+    duration=10,
+    resolution="720P",
+    size="16x9",
+    model="seedance-2-0"
+):
     url = f"{BASE_URL}/v1/video-generation"
 
     headers = {
@@ -13,7 +19,7 @@ def create_video(prompt, duration=15, resolution="720P", size="16x9", model="see
         "Content-Type": "application/json"
     }
 
-    data = {
+    payload = {
         "model": model,
         "prompt": prompt,
         "duration": duration,
@@ -21,13 +27,27 @@ def create_video(prompt, duration=15, resolution="720P", size="16x9", model="see
         "size": size
     }
 
-    res = requests.post(url, headers=headers, json=data, timeout=60)
+    print("发送参数:")
+    print(payload)
+
+    res = requests.post(
+        url,
+        headers=headers,
+        json=payload,
+        timeout=60
+    )
+
     print("创建状态码:", res.status_code)
     print("创建返回:", res.text)
 
     result = res.json()
 
-    return result.get("task_id") or result.get("data", {}).get("task_id")
+    return (
+        result.get("task_id")
+        or result.get("id")
+        or result.get("data", {}).get("task_id")
+        or result.get("data", {}).get("id")
+    )
 
 
 def query_video(task_id):
@@ -41,7 +61,13 @@ def query_video(task_id):
         "task_id": task_id
     }
 
-    res = requests.get(url, headers=headers, params=params, timeout=60)
+    res = requests.get(
+        url,
+        headers=headers,
+        params=params,
+        timeout=60
+    )
+
     print("查询状态码:", res.status_code)
     print("查询返回:", res.text)
 
@@ -71,7 +97,7 @@ def get_video_url(result):
 def generate_seedance(
     prompt,
     resolution="720P",
-    duration=15,
+    duration=10,
     max_attempts=300,
     sleep_seconds=5
 ):
@@ -87,12 +113,14 @@ def generate_seedance(
             "error": "没有拿到 task_id"
         }
 
-    print("Seedance任务ID:", task_id)
+    print("任务ID:", task_id)
 
     for i in range(max_attempts):
+
         result = query_video(task_id)
 
         data = result.get("data", {})
+
         status = (
             result.get("status")
             or result.get("state")
@@ -101,26 +129,34 @@ def generate_seedance(
             or data.get("task_status")
         )
 
-        print(f"轮询第 {i + 1} 次，状态:", status)
+        print(f"轮询第{i+1}次:", status)
 
         status_text = str(status).lower()
 
-        if status_text in ["succeed", "succeeded", "success", "completed", "done"]:
-            video_url = get_video_url(result)
+        if status_text in [
+            "success",
+            "succeed",
+            "succeeded",
+            "completed",
+            "done"
+        ]:
 
             return {
                 "status": "success",
                 "task_id": task_id,
-                "video_url": video_url,
-                "resolution": resolution,
+                "video_url": get_video_url(result),
                 "raw": result
             }
 
-        if status_text in ["failed", "fail", "error"]:
+        if status_text in [
+            "failed",
+            "fail",
+            "error"
+        ]:
+
             return {
                 "status": "failed",
                 "task_id": task_id,
-                "error": "任务失败",
                 "raw": result
             }
 
@@ -128,12 +164,18 @@ def generate_seedance(
 
     return {
         "status": "processing",
-        "message": "任务还在生成中，可以稍后用 task_id 查询",
         "task_id": task_id
     }
 
 
 if __name__ == "__main__":
-    test_prompt = input("请输入Seedance测试Prompt: ")
-    resolution = input("分辨率 480P / 720P，默认720P: ").strip() or "720P"
-    print(generate_seedance(test_prompt, resolution=resolution))
+
+    prompt = input("请输入Prompt: ")
+
+    result = generate_seedance(
+        prompt=prompt,
+        duration=10,
+        resolution="720P"
+    )
+
+    print(result)
