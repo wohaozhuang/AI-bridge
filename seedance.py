@@ -1,7 +1,8 @@
 import time
+import json
 import requests
 
-API_KEY = "你的API_KEY"
+API_KEY = "b19eb56dc466df154096a3fb43bcdb8e6837a2a552b4a87b6ace72af0ccae969"
 BASE_URL = "https://api-auroraai.visionular.cn"
 
 
@@ -10,7 +11,7 @@ def create_video(prompt, duration=5, resolution="720P", size="16x9", model="seed
 
     headers = {
         "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json; charset=utf-8"
     }
 
     payload = {
@@ -22,7 +23,14 @@ def create_video(prompt, duration=5, resolution="720P", size="16x9", model="seed
     }
 
     try:
-        res = requests.post(url, headers=headers, json=payload, timeout=60)
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+
+        res = requests.post(
+            url,
+            headers=headers,
+            data=body,
+            timeout=60
+        )
 
         try:
             result = res.json()
@@ -36,11 +44,11 @@ def create_video(prompt, duration=5, resolution="720P", size="16x9", model="seed
 
         return (
             result.get("task_id")
+            or result.get("taskId")
             or result.get("id")
             or result.get("data", {}).get("task_id")
-            or result.get("data", {}).get("id")
             or result.get("data", {}).get("taskId")
-            or result.get("taskId")
+            or result.get("data", {}).get("id")
         )
 
     except Exception as e:
@@ -62,7 +70,12 @@ def query_video(task_id):
     }
 
     try:
-        res = requests.get(url, headers=headers, params=params, timeout=60)
+        res = requests.get(
+            url,
+            headers=headers,
+            params=params,
+            timeout=60
+        )
 
         try:
             return res.json()
@@ -82,7 +95,7 @@ def query_video(task_id):
 def get_video_url(result):
     data = result.get("data", {})
 
-    possible_paths = [
+    possible_urls = [
         result.get("video_url"),
         result.get("url"),
         result.get("file_url"),
@@ -94,13 +107,15 @@ def get_video_url(result):
         data.get("file_url"),
         data.get("output_url"),
         data.get("result_url"),
+        data.get("fileUrl"),
+        data.get("videoUrl"),
 
         data.get("video", {}).get("url") if isinstance(data.get("video"), dict) else None,
     ]
 
-    for item in possible_paths:
-        if item:
-            return item
+    for url in possible_urls:
+        if url:
+            return url
 
     return None
 
@@ -132,13 +147,23 @@ def generate_seedance(prompt, resolution="720P", duration=5, max_attempts=300, s
             or data.get("taskStatus")
         )
 
+        video_url = get_video_url(result)
+
+        if video_url:
+            return {
+                "status": "success",
+                "task_id": task_id,
+                "video_url": video_url,
+                "raw": result
+            }
+
         status_text = str(status).lower()
 
         if status_text in ["success", "succeed", "succeeded", "completed", "done"]:
             return {
                 "status": "success",
                 "task_id": task_id,
-                "video_url": get_video_url(result),
+                "video_url": video_url,
                 "raw": result
             }
 
@@ -146,15 +171,6 @@ def generate_seedance(prompt, resolution="720P", duration=5, max_attempts=300, s
             return {
                 "status": "failed",
                 "task_id": task_id,
-                "raw": result
-            }
-
-        video_url = get_video_url(result)
-        if video_url:
-            return {
-                "status": "success",
-                "task_id": task_id,
-                "video_url": video_url,
                 "raw": result
             }
 
