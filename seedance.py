@@ -5,7 +5,7 @@ API_KEY = "b19eb56dc466df154096a3fb43bcdb8e6837a2a552b4a87b6ace72af0ccae969"
 BASE_URL = "https://api-auroraai.visionular.cn"
 
 
-def create_video(prompt, duration=5, resolution="720P", size="16x9", model="seedance-2-0"):
+def create_video(prompt, duration=15, resolution="720P", size="16x9", model="seedance-2-0"):
     url = f"{BASE_URL}/v1/video-generation"
 
     headers = {
@@ -71,7 +71,7 @@ def get_video_url(result):
 def generate_seedance(
     prompt,
     resolution="720P",
-    duration=20,
+    duration=15,
     max_attempts=300,
     sleep_seconds=5
 ):
