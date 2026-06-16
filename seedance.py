@@ -1,17 +1,11 @@
 import time
 import requests
 
-API_KEY = "b19eb56dc466df154096a3fb43bcdb8e6837a2a552b4a87b6ace72af0ccae969"
+API_KEY = "你的API_KEY"
 BASE_URL = "https://api-auroraai.visionular.cn"
 
 
-def create_video(
-    prompt,
-    duration=10,
-    resolution="720P",
-    size="16x9",
-    model="seedance-2-0"
-):
+def create_video(prompt, duration=5, resolution="720P", size="16x9", model="seedance-2-0"):
     url = f"{BASE_URL}/v1/video-generation"
 
     headers = {
@@ -27,27 +21,33 @@ def create_video(
         "size": size
     }
 
-    print("发送参数:")
-    print(payload)
+    try:
+        res = requests.post(url, headers=headers, json=payload, timeout=60)
 
-    res = requests.post(
-        url,
-        headers=headers,
-        json=payload,
-        timeout=60
-    )
+        try:
+            result = res.json()
+        except Exception:
+            result = {
+                "http_status": res.status_code,
+                "text": res.text
+            }
 
-    print("创建状态码:", res.status_code)
-    print("创建返回:", res.text)
+        create_video.last_response = result
 
-    result = res.json()
+        return (
+            result.get("task_id")
+            or result.get("id")
+            or result.get("data", {}).get("task_id")
+            or result.get("data", {}).get("id")
+            or result.get("data", {}).get("taskId")
+            or result.get("taskId")
+        )
 
-    return (
-        result.get("task_id")
-        or result.get("id")
-        or result.get("data", {}).get("task_id")
-        or result.get("data", {}).get("id")
-    )
+    except Exception as e:
+        create_video.last_response = {
+            "error": str(e)
+        }
+        return None
 
 
 def query_video(task_id):
@@ -61,17 +61,22 @@ def query_video(task_id):
         "task_id": task_id
     }
 
-    res = requests.get(
-        url,
-        headers=headers,
-        params=params,
-        timeout=60
-    )
+    try:
+        res = requests.get(url, headers=headers, params=params, timeout=60)
 
-    print("查询状态码:", res.status_code)
-    print("查询返回:", res.text)
+        try:
+            return res.json()
+        except Exception:
+            return {
+                "http_status": res.status_code,
+                "text": res.text
+            }
 
-    return res.json()
+    except Exception as e:
+        return {
+            "status": "failed",
+            "error": str(e)
+        }
 
 
 def get_video_url(result):
@@ -80,11 +85,17 @@ def get_video_url(result):
     possible_paths = [
         result.get("video_url"),
         result.get("url"),
-        data.get("file_url"),
+        result.get("file_url"),
+        result.get("output_url"),
+        result.get("result_url"),
+
         data.get("video_url"),
         data.get("url"),
+        data.get("file_url"),
         data.get("output_url"),
         data.get("result_url"),
+
+        data.get("video", {}).get("url") if isinstance(data.get("video"), dict) else None,
     ]
 
     for item in possible_paths:
@@ -94,13 +105,7 @@ def get_video_url(result):
     return None
 
 
-def generate_seedance(
-    prompt,
-    resolution="720P",
-    duration=10,
-    max_attempts=300,
-    sleep_seconds=5
-):
+def generate_seedance(prompt, resolution="720P", duration=5, max_attempts=300, sleep_seconds=5):
     task_id = create_video(
         prompt=prompt,
         duration=duration,
@@ -110,15 +115,12 @@ def generate_seedance(
     if not task_id:
         return {
             "status": "failed",
-            "error": "没有拿到 task_id"
+            "error": "没有拿到 task_id，创建任务失败",
+            "raw_create_response": getattr(create_video, "last_response", None)
         }
 
-    print("任务ID:", task_id)
-
     for i in range(max_attempts):
-
         result = query_video(task_id)
-
         data = result.get("data", {})
 
         status = (
@@ -127,20 +129,12 @@ def generate_seedance(
             or data.get("status")
             or data.get("state")
             or data.get("task_status")
+            or data.get("taskStatus")
         )
-
-        print(f"轮询第{i+1}次:", status)
 
         status_text = str(status).lower()
 
-        if status_text in [
-            "success",
-            "succeed",
-            "succeeded",
-            "completed",
-            "done"
-        ]:
-
+        if status_text in ["success", "succeed", "succeeded", "completed", "done"]:
             return {
                 "status": "success",
                 "task_id": task_id,
@@ -148,15 +142,19 @@ def generate_seedance(
                 "raw": result
             }
 
-        if status_text in [
-            "failed",
-            "fail",
-            "error"
-        ]:
-
+        if status_text in ["failed", "fail", "error"]:
             return {
                 "status": "failed",
                 "task_id": task_id,
+                "raw": result
+            }
+
+        video_url = get_video_url(result)
+        if video_url:
+            return {
+                "status": "success",
+                "task_id": task_id,
+                "video_url": video_url,
                 "raw": result
             }
 
@@ -169,12 +167,11 @@ def generate_seedance(
 
 
 if __name__ == "__main__":
-
     prompt = input("请输入Prompt: ")
 
     result = generate_seedance(
         prompt=prompt,
-        duration=10,
+        duration=5,
         resolution="720P"
     )
 
