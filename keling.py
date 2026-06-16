@@ -24,15 +24,20 @@ def get_headers():
     }
 
 
-def create_video(prompt):
+def create_video(
+    prompt,
+    duration="5",
+    aspect_ratio="16:9",
+    mode="std"
+):
     url = f"{BASE_URL}/v1/videos/text2video"
 
     data = {
         "model_name": "kling-v1",
         "prompt": prompt,
-        "duration": "5",
-        "aspect_ratio": "16:9",
-        "mode": "std",
+        "duration": str(duration),
+        "aspect_ratio": aspect_ratio,
+        "mode": mode,
         "cfg_scale": 0.5
     }
 
@@ -57,8 +62,8 @@ def query_video(task_id):
     return res.json()
 
 
-def generate_video(prompt):
-    task_id = create_video(prompt)
+def generate_video(prompt, duration="5"):
+    task_id = create_video(prompt, duration=duration)
 
     if not task_id:
         print("❌ 没有拿到视频 task_id")
@@ -84,10 +89,6 @@ def generate_video(prompt):
             video = videos[0]
             video_url = video.get("url")
             video_id = video.get("id")
-
-            print("✅ 视频生成成功")
-            print("video_id:", video_id)
-            print("video_url:", video_url)
 
             return video_url, video_id
 
@@ -198,10 +199,6 @@ def generate_audio_for_video(
 
         if status == "succeed":
             final_url = get_final_video_url(result)
-
-            print("✅ 带声音视频生成成功")
-            print("最终视频地址:", final_url)
-
             return final_url
 
         if status == "failed":
@@ -214,17 +211,15 @@ def generate_audio_for_video(
     return None
 
 
-def download_file(url, filename):
-    res = requests.get(url, timeout=120)
-    res.raise_for_status()
-
-    with open(filename, "wb") as f:
-        f.write(res.content)
-
-    print("✅ 下载完成:", filename)
-
-def generate_kling(prompt, audio=True):
-    video_url, video_id = generate_video(prompt)
+def generate_kling(
+    prompt,
+    audio=True,
+    duration="5"
+):
+    video_url, video_id = generate_video(
+        prompt,
+        duration=duration
+    )
 
     if not video_url and not video_id:
         return {
@@ -261,30 +256,8 @@ def generate_kling(prompt, audio=True):
         "video_id": video_id
     }
 
+
 if __name__ == "__main__":
     video_prompt = input("请输入视频Prompt: ")
-
-    sound_prompt = input("请输入音效Prompt: ")
-    if not sound_prompt.strip():
-        sound_prompt = "根据视频内容生成真实自然的环境音效"
-
-    bgm_prompt = input("请输入BGM Prompt: ")
-    if not bgm_prompt.strip():
-        bgm_prompt = "电影感背景音乐，氛围自然，不要盖过音效"
-
-    video_url, video_id = generate_video(video_prompt)
-
-    if not video_url and not video_id:
-        print("❌ 视频生成失败，停止")
-        exit()
-
-    final_url = generate_audio_for_video(
-        video_url=video_url,
-        video_id=video_id,
-        sound_effect_prompt=sound_prompt,
-        bgm_prompt=bgm_prompt,
-        asmr_mode=True
-    )
-
-    if final_url:
-        download_file(final_url, "kling_with_audio.mp4")
+    result = generate_kling(video_prompt, audio=True)
+    print(result)
