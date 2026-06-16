@@ -71,7 +71,7 @@ def get_video_url(result):
 def generate_seedance(
     prompt,
     resolution="720P",
-    duration=5,
+    duration=20,
     max_attempts=300,
     sleep_seconds=5
 ):
