@@ -29,9 +29,6 @@ if "role" not in st.session_state:
     st.session_state.role = ""
 
 
-# =========================
-# 登录 / 注册页面
-# =========================
 if not st.session_state.logged_in:
 
     st.title("AI视频生成平台")
@@ -74,9 +71,6 @@ if not st.session_state.logged_in:
     st.stop()
 
 
-# =========================
-# 主页面
-# =========================
 st.title("AI视频生成平台")
 
 st.sidebar.success(f"当前用户：{st.session_state.username}")
@@ -136,6 +130,14 @@ resolution = st.selectbox(
     "选择分辨率",
     ["480P", "720P"],
     index=1
+)
+
+duration = st.radio(
+    "视频时长",
+    [5, 10],
+    index=0,
+    horizontal=True,
+    format_func=lambda x: f"{x}秒"
 )
 
 prompt = st.text_area(
@@ -239,7 +241,11 @@ if st.button("生成视频"):
                 )
 
             else:
-                result = generate_seedance(prompt)
+                result = generate_seedance(
+                    prompt,
+                    resolution=resolution,
+                    duration=duration
+                )
 
         if isinstance(result, dict) and result.get("status") == "failed":
             st.error("生成失败")
