@@ -1,9 +1,7 @@
 import time
 import requests
 
-# 填你的 AuroraAI / Seedance API Key
 API_KEY = "b19eb56dc466df154096a3fb43bcdb8e6837a2a552b4a87b6ace72af0ccae969"
-
 BASE_URL = "https://api-auroraai.visionular.cn"
 
 
@@ -29,10 +27,7 @@ def create_video(prompt, duration=5, resolution="720P", size="16x9", model="seed
 
     result = res.json()
 
-    return (
-        result.get("task_id")
-        or result.get("data", {}).get("task_id")
-    )
+    return result.get("task_id") or result.get("data", {}).get("task_id")
 
 
 def query_video(task_id):
@@ -73,8 +68,18 @@ def get_video_url(result):
     return None
 
 
-def generate_seedance(prompt, max_attempts=300, sleep_seconds=5):
-    task_id = create_video(prompt)
+def generate_seedance(
+    prompt,
+    resolution="720P",
+    duration=5,
+    max_attempts=300,
+    sleep_seconds=5
+):
+    task_id = create_video(
+        prompt=prompt,
+        duration=duration,
+        resolution=resolution
+    )
 
     if not task_id:
         return {
@@ -103,13 +108,11 @@ def generate_seedance(prompt, max_attempts=300, sleep_seconds=5):
         if status_text in ["succeed", "succeeded", "success", "completed", "done"]:
             video_url = get_video_url(result)
 
-            print("✅ 视频已生成！")
-            print("视频地址:", video_url)
-
             return {
                 "status": "success",
                 "task_id": task_id,
                 "video_url": video_url,
+                "resolution": resolution,
                 "raw": result
             }
 
@@ -132,4 +135,5 @@ def generate_seedance(prompt, max_attempts=300, sleep_seconds=5):
 
 if __name__ == "__main__":
     test_prompt = input("请输入Seedance测试Prompt: ")
-    print(generate_seedance(test_prompt))
+    resolution = input("分辨率 480P / 720P，默认720P: ").strip() or "720P"
+    print(generate_seedance(test_prompt, resolution=resolution))
