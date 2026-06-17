@@ -1,6 +1,7 @@
 import time
 import jwt
 import requests
+import base64
 
 ACCESS_KEY = "ADTGPyPydenrbtA4dryptBJRykN9hrPC"
 SECRET_KEY = "gkBNLaKedMDmhpaCGEBr3FPYKbFPRPnT"
@@ -24,7 +25,11 @@ def get_headers():
     }
 
 
-def create_video(
+def image_to_base64(image):
+    return base64.b64encode(image.getvalue()).decode("utf-8")
+
+
+def create_text_video(
     prompt,
     duration="5",
     aspect_ratio="16:9",
@@ -42,8 +47,8 @@ def create_video(
     }
 
     res = requests.post(url, headers=get_headers(), json=data, timeout=60)
-    print("创建视频状态码:", res.status_code)
-    print("创建视频返回:", res.text)
+    print("文生视频创建状态码:", res.status_code)
+    print("文生视频创建返回:", res.text)
 
     res.raise_for_status()
     result = res.json()
@@ -51,19 +56,73 @@ def create_video(
     return result.get("data", {}).get("task_id")
 
 
-def query_video(task_id):
+def create_image_video(
+    prompt,
+    image,
+    duration="5",
+    aspect_ratio="16:9",
+    mode="std"
+):
+    url = f"{BASE_URL}/v1/videos/image2video"
+
+    image_base64 = image_to_base64(image)
+
+    data = {
+        "model_name": "kling-v1",
+        "image": image_base64,
+        "prompt": prompt,
+        "duration": str(duration),
+        "aspect_ratio": aspect_ratio,
+        "mode": mode,
+        "cfg_scale": 0.5
+    }
+
+    res = requests.post(url, headers=get_headers(), json=data, timeout=60)
+    print("图生视频创建状态码:", res.status_code)
+    print("图生视频创建返回:", res.text)
+
+    res.raise_for_status()
+    result = res.json()
+
+    return result.get("data", {}).get("task_id")
+
+
+def query_text_video(task_id):
     url = f"{BASE_URL}/v1/videos/text2video/{task_id}"
 
     res = requests.get(url, headers=get_headers(), timeout=60)
-    print("查询视频状态码:", res.status_code)
-    print("查询视频返回:", res.text)
+    print("查询文生视频状态码:", res.status_code)
+    print("查询文生视频返回:", res.text)
 
     res.raise_for_status()
     return res.json()
 
 
-def generate_video(prompt, duration="5"):
-    task_id = create_video(prompt, duration=duration)
+def query_image_video(task_id):
+    url = f"{BASE_URL}/v1/videos/image2video/{task_id}"
+
+    res = requests.get(url, headers=get_headers(), timeout=60)
+    print("查询图生视频状态码:", res.status_code)
+    print("查询图生视频返回:", res.text)
+
+    res.raise_for_status()
+    return res.json()
+
+
+def generate_video(prompt, duration="5", image=None):
+    if image is not None:
+        task_id = create_image_video(
+            prompt=prompt,
+            image=image,
+            duration=duration
+        )
+        query_func = query_image_video
+    else:
+        task_id = create_text_video(
+            prompt=prompt,
+            duration=duration
+        )
+        query_func = query_text_video
 
     if not task_id:
         print("❌ 没有拿到视频 task_id")
@@ -72,7 +131,7 @@ def generate_video(prompt, duration="5"):
     print("视频任务ID:", task_id)
 
     for i in range(120):
-        result = query_video(task_id)
+        result = query_func(task_id)
 
         data = result.get("data", {})
         status = data.get("task_status")
@@ -214,11 +273,13 @@ def generate_audio_for_video(
 def generate_kling(
     prompt,
     audio=True,
-    duration="5"
+    duration="5",
+    image=None
 ):
     video_url, video_id = generate_video(
         prompt,
-        duration=duration
+        duration=duration,
+        image=image
     )
 
     if not video_url and not video_id:
