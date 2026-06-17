@@ -6,7 +6,14 @@ API_KEY = "b19eb56dc466df154096a3fb43bcdb8e6837a2a552b4a87b6ace72af0ccae969"
 BASE_URL = "https://api-auroraai.visionular.cn"
 
 
-def create_video(prompt, duration=5, resolution="720P", size="16x9", model="seedance-2-0"):
+def create_video(
+    prompt,
+    duration=5,
+    resolution="720P",
+    size="16x9",
+    model="seedance-2-0",
+    image_url=None
+):
     url = f"{BASE_URL}/v1/video-generation"
 
     headers = {
@@ -21,6 +28,9 @@ def create_video(prompt, duration=5, resolution="720P", size="16x9", model="seed
         "resolution": resolution,
         "size": size
     }
+
+    if image_url:
+        payload["images"] = [image_url]
 
     try:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -120,11 +130,26 @@ def get_video_url(result):
     return None
 
 
-def generate_seedance(prompt, resolution="720P", duration=5, max_attempts=300, sleep_seconds=5):
+def generate_seedance(
+    prompt,
+    resolution="720P",
+    duration=5,
+    max_attempts=300,
+    sleep_seconds=5,
+    image=None,
+    image_url=None
+):
+    if image is not None and not image_url:
+        return {
+            "status": "failed",
+            "error": "Seedance 当前文档要求图片必须是公网 URL，Streamlit 本地上传图不能直接传。请先用可灵或拍我AI测试图生视频。"
+        }
+
     task_id = create_video(
         prompt=prompt,
         duration=duration,
-        resolution=resolution
+        resolution=resolution,
+        image_url=image_url
     )
 
     if not task_id:
