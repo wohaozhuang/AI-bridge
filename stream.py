@@ -140,6 +140,17 @@ duration = st.radio(
     format_func=lambda x: f"{x}秒"
 )
 
+
+uploaded_image = st.file_uploader(
+    "上传参考图片（可选，用于图生视频）",
+    type=["jpg", "jpeg", "png"]
+)
+
+if uploaded_image is not None:
+    st.image(uploaded_image, caption="已上传参考图", use_container_width=True)
+    st.info("检测到参考图。后端支持后，将使用图生视频；目前如果后端没改，仍可能只按文生视频生成。")
+
+
 prompt = st.text_area(
     "请输入视频描述",
     height=300
@@ -226,8 +237,15 @@ if st.button("生成视频"):
     else:
         with st.spinner("正在生成视频，请等待..."):
 
+            if uploaded_image is not None:
+                st.warning("你上传了参考图，但还需要对应模型后端支持图生视频接口。")
+
             if model == "可灵":
-                result = generate_kling(prompt, audio=add_audio)
+                result = generate_kling(
+                    prompt,
+                    audio=add_audio,
+                    image=uploaded_image
+                )
 
             elif model == "拍我AI":
                 result = generate_pai(
@@ -237,14 +255,16 @@ if st.button("生成视频"):
                     sound_text="根据视频内容生成真实自然的环境音效",
                     add_lip_sync=add_voice,
                     tts_text=voice_text,
-                    speaker_id=speaker_id
+                    speaker_id=speaker_id,
+                    image=uploaded_image
                 )
 
             else:
                 result = generate_seedance(
                     prompt,
                     resolution=resolution,
-                    duration=duration
+                    duration=duration,
+                    image=uploaded_image
                 )
 
         if isinstance(result, dict) and result.get("status") == "failed":
